@@ -5,13 +5,18 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 var _ = declareDay(24, func(part2 bool, inputReader io.Reader) interface{} {
+	mu := &sync.Mutex{}
 	maxStrength := 0
 	maxLength := 0
 
 	day24FindPossibleBridges(day24ParseComponents(inputReader), func(length, strength int) {
+		mu.Lock()
+		defer mu.Unlock()
+
 		stronger := strength > maxStrength
 		longer := length > maxLength
 		shorter := length < maxLength
@@ -47,18 +52,30 @@ func day24ParseComponents(inputReader io.Reader) (components []day24Component) {
 }
 
 func day24FindPossibleBridges(components []day24Component, fn func(length, strength int)) {
-	bridgeBuilder := day24NewBridgeBuilder(components)
+	wg := &sync.WaitGroup{}
 
-	for bridgeBuilder.findAndAddNextComponent() {
-		for bridgeBuilder.bridge.len() > 0 {
-			for bridgeBuilder.findAndAddNextComponent() {
-			}
+	for i, c := range components {
+		if c.hasPort(0) {
+			wg.Add(1)
+			go func(zeroIndex int) {
+				bridgeBuilder := day24NewBridgeBuilder(components)
+				bridgeBuilder.addComponentIndex(zeroIndex)
 
-			fn(bridgeBuilder.bridge.len(), bridgeBuilder.strength)
+				for bridgeBuilder.bridge.len() > 0 {
+					for bridgeBuilder.findAndAddNextComponent() {
+					}
 
-			bridgeBuilder.removeLastComponent()
+					fn(bridgeBuilder.bridge.len(), bridgeBuilder.strength)
+
+					bridgeBuilder.removeLastComponent()
+				}
+
+				wg.Done()
+			}(i)
 		}
 	}
+
+	wg.Wait()
 }
 
 type day24BridgeBuilder struct {
@@ -79,14 +96,18 @@ func day24NewBridgeBuilder(components []day24Component) *day24BridgeBuilder {
 func (b *day24BridgeBuilder) findAndAddNextComponent() bool {
 	for i := b.searchStart; i < len(b.components); i++ {
 		if !b.bridge.contains(i) && b.components[i].hasPort(b.exposedPort) {
-			b.bridge.push(i)
-			b.strength += b.components[i].strength()
-			b.exposedPort = b.components[i].portOppositeTo(b.exposedPort)
-			b.searchStart = 0
+			b.addComponentIndex(i)
 			return true
 		}
 	}
 	return false
+}
+
+func (b *day24BridgeBuilder) addComponentIndex(i int) {
+	b.bridge.push(i)
+	b.strength += b.components[i].strength()
+	b.exposedPort = b.components[i].portOppositeTo(b.exposedPort)
+	b.searchStart = 0
 }
 
 func (b *day24BridgeBuilder) removeLastComponent() {
