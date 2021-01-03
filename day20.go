@@ -111,16 +111,15 @@ func (v day20Vector) distToOrigin() int64 {
 	if z < 0 {
 		z = -z
 	}
-	xy := add64(x, y)
-	return add64(xy, z)
+	return x + y + z
 }
 
 type day20Particle struct{ p, v, a day20Vector }
 
 func (p day20Particle) tick() day20Particle {
-	vx, vy, vz := add64(p.v.x, p.a.x), add64(p.v.y, p.a.y), add64(p.v.z, p.a.z)
+	vx, vy, vz := p.v.x+p.a.x, p.v.y+p.a.y, p.v.z+p.a.z
 	return day20Particle{
-		p: day20Vector{add64(p.p.x, vx), add64(p.p.y, vy), add64(p.p.z, vz)},
+		p: day20Vector{p.p.x + vx, p.p.y + vy, p.p.z + vz},
 		v: day20Vector{vx, vy, vz},
 		a: p.a,
 	}
@@ -194,30 +193,6 @@ func (s day20ParticleSystem) noMoreCollisions() bool {
 		lastVelocity, lastAcceleration = thisVelocity, thisAcceleration
 	}
 	return true
-}
-
-func add64(a, b int64) int64 {
-	if b > 0 {
-		if a > math.MaxInt64-b {
-			panic("overflow")
-		}
-	} else {
-		if a < math.MinInt64-b {
-			panic("overflow")
-		}
-	}
-	return a + b
-}
-
-func gteInMag(a, b int64) bool {
-	if !eqSign(a, b) {
-		return false
-	}
-	if a < 0 {
-		a = -a
-		b = -b
-	}
-	return a >= b
 }
 
 func eqSign(a, b int64) bool {

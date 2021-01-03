@@ -14,14 +14,14 @@ var _ = declareDay(18, func(part2 bool, inputReader io.Reader) interface{} {
 	return day18Part1(inputReader)
 })
 
-func day18Part1(inputReader io.Reader) interface{} {
-	panic("no solution")
+func day18Part1(_ io.Reader) interface{} {
+	return nil
 }
 
 func day18Part2(inputReader io.Reader) interface{} {
-	ops := parse(inputReader)
-	p0 := computer{ops: ops}
-	p1 := computer{ops: ops}
+	instructions := day18Parse(inputReader)
+	p0 := day18Computer{instructions: instructions}
+	p1 := day18Computer{instructions: instructions}
 	p0.peerQueue, p1.peerQueue = &p1.queue, &p0.queue
 	p1.registers[int('p'-'a')] = 1
 	for p0.tick() || p1.tick() {
@@ -29,22 +29,22 @@ func day18Part2(inputReader io.Reader) interface{} {
 	return p1.sends
 }
 
-type computer struct {
-	registers [26]int
-	queue     []int
-	peerQueue *[]int
-	ip        int
-	ops       []operation
-	sends     int
+type day18Computer struct {
+	registers    [26]int
+	queue        []int
+	peerQueue    *[]int
+	ip           int
+	instructions []day18Instruction
+	sends        int
 }
 
-func (c *computer) tick() bool {
-	return c.ip >= 0 && c.ip < len(c.ops) && c.ops[c.ip](c)
+func (c *day18Computer) tick() bool {
+	return c.ip >= 0 && c.ip < len(c.instructions) && c.instructions[c.ip](c)
 }
 
-type operation func(*computer) bool
+type day18Instruction func(*day18Computer) bool
 
-func parse(inputReader io.Reader) (operations []operation) {
+func day18Parse(inputReader io.Reader) (instructions []day18Instruction) {
 	scanner := bufio.NewScanner(inputReader)
 
 	for scanner.Scan() {
@@ -54,23 +54,23 @@ func parse(inputReader io.Reader) (operations []operation) {
 
 		fields := strings.Fields(scanner.Text())
 		register := int(fields[1][0] - 'a')
-		argValue := func(arg int) func(*computer) int {
+		argValue := func(arg int) func(*day18Computer) int {
 			if asValue, err := strconv.Atoi(fields[arg]); err == nil {
-				return func(_ *computer) int {
+				return func(_ *day18Computer) int {
 					return asValue
 				}
 			}
 			argRegister := int(fields[arg][0] - 'a')
-			return func(c *computer) int {
+			return func(c *day18Computer) int {
 				return c.registers[argRegister]
 			}
 		}
 
-		operations = append(operations, func() operation {
+		instructions = append(instructions, func() day18Instruction {
 			switch fields[0] {
 			case "snd":
 				arg1 := argValue(1)
-				return func(c *computer) bool {
+				return func(c *day18Computer) bool {
 					*c.peerQueue = append(*c.peerQueue, arg1(c))
 					c.sends++
 					c.ip++
@@ -78,34 +78,34 @@ func parse(inputReader io.Reader) (operations []operation) {
 				}
 			case "set":
 				arg2 := argValue(2)
-				return func(c *computer) bool {
+				return func(c *day18Computer) bool {
 					c.registers[register] = arg2(c)
 					c.ip++
 					return true
 				}
 			case "add":
 				arg2 := argValue(2)
-				return func(c *computer) bool {
+				return func(c *day18Computer) bool {
 					c.registers[register] += arg2(c)
 					c.ip++
 					return true
 				}
 			case "mul":
 				arg2 := argValue(2)
-				return func(c *computer) bool {
+				return func(c *day18Computer) bool {
 					c.registers[register] *= arg2(c)
 					c.ip++
 					return true
 				}
 			case "mod":
 				arg2 := argValue(2)
-				return func(c *computer) bool {
+				return func(c *day18Computer) bool {
 					c.registers[register] %= arg2(c)
 					c.ip++
 					return true
 				}
 			case "rcv":
-				return func(c *computer) bool {
+				return func(c *day18Computer) bool {
 					if len(c.queue) == 0 {
 						return false
 					}
@@ -117,7 +117,7 @@ func parse(inputReader io.Reader) (operations []operation) {
 			case "jgz":
 				arg1 := argValue(1)
 				arg2 := argValue(2)
-				return func(c *computer) bool {
+				return func(c *day18Computer) bool {
 					if arg1(c) > 0 {
 						c.ip += arg2(c)
 					} else {
@@ -131,5 +131,5 @@ func parse(inputReader io.Reader) (operations []operation) {
 		}())
 	}
 
-	return operations
+	return instructions
 }
